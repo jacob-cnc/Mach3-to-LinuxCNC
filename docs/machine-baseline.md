@@ -11,12 +11,8 @@ Source: MACH3 USB Steel structure 3040 Manual-1.docx (22 pages), supplied by own
 - Two limit switches per axis according to p. 21. Conflicting home/limit examples on pp. 11, 14–15 and 20; trace wiring rather than copying logical port/pin numbers.
 - Vendor recommends VFD grounding and input filtering (p. 19).
 
-## Retrofit plan (proposed, not implemented)
-1. Back up actual working Mach3 profile and VFD parameters.
-2. Photograph and identify controller, drives, motor labels, power supplies, VFD and terminal blocks with power isolated.
-3. Verify step/direction electrical levels, drive timing, switch topology, probe and spindle interface. Select LinuxCNC-supported motion hardware (Mesa Ethernet candidate).
-4. Design independent emergency-stop and drive/spindle inhibit circuit; verify protective earth, isolation and coolant interlocks.
-5. Create HAL/INI only after pin mapping and measured travel/scale are confirmed. Commission one axis at a time at reduced speed, then home/limits, spindle and probe.
-6. Validate scale, backlash, repeatability, spindle speed and fault response before cutting.
+## Retrofit plan
+
+Moved to [retrofit-plan.md](retrofit-plan.md).
 
 No runnable configuration or wiring assignment is approved yet.

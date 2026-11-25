@@ -4,8 +4,10 @@ Retrofit of a ChinaCNCzone 3040 three-axis steel-structure CNC mill with 2.2 kW 
 
 Status: planning; no validated LinuxCNC configuration yet.
 
-- [Machine baseline and retrofit plan](docs/machine-baseline.md)
+- [Retrofit plan](docs/retrofit-plan.md)
+- [Machine baseline](docs/machine-baseline.md)
 - [OEM source inventory](docs/source-inventory.md)
 - [Commissioning checklist](commissioning/README.md)
+- [ADR-001: Motion controller is a Mesa 7i96S + 7i85S](decisions/ADR-001-motion-controller.md)
 
-Mesa Ethernet is a candidate, not a finalized selection. Preserve the working Mach3 configuration before changing hardware.
+Preserve the working Mach3 configuration before changing hardware.
