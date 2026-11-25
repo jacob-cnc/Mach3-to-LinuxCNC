@@ -1,0 +1,57 @@
+# ============================================================================
+# sim_hardware.hal: stands in for the Mesa 7i96S + 7i85S.
+#
+# Provides the hardware side of the signals in mill_core.hal:
+#   - position feedback: each joint's command looped straight back
+#   - axis switches: tripped when an axis is past its SIM_SWITCH_MIN/MAX
+#
+# Inputs with no simulated source stay FALSE (healthy). Trip them by hand
+# from a terminal while the sim runs, for example:
+#   halcmd sets estop-ext-fault 1     E-stop chain opened
+#   halcmd sets vfd-fault 1           VFD fault
+#   halcmd sets drive-alarm 1         drive alarm
+#   halcmd sets probe-in 1            probe touching
+#   halcmd sets toolsetter-in 1       tool setter touching
+# Set back to 0 to clear. Outputs (machine-on, spindle-*, coolant-flood,
+# x-enable ...) can be watched in halshow.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Position feedback: perfect loopback
+# ----------------------------------------------------------------------------
+net x-pos-cmd => joint.0.motor-pos-fb
+net y-pos-cmd => joint.1.motor-pos-fb
+net z-pos-cmd => joint.2.motor-pos-fb
+
+# ----------------------------------------------------------------------------
+# Axis switches: window comparator per axis. out = inside travel, so the
+# switch is tripped when out is FALSE.
+# ----------------------------------------------------------------------------
+loadrt wcomp names=sim-x-window,sim-y-window,sim-z-window
+loadrt not   names=sim-x-trip,sim-y-trip,sim-z-trip
+
+addf sim-x-window servo-thread
+addf sim-y-window servo-thread
+addf sim-z-window servo-thread
+addf sim-x-trip   servo-thread
+addf sim-y-trip   servo-thread
+addf sim-z-trip   servo-thread
+
+setp sim-x-window.min [JOINT_0]SIM_SWITCH_MIN
+setp sim-x-window.max [JOINT_0]SIM_SWITCH_MAX
+setp sim-y-window.min [JOINT_1]SIM_SWITCH_MIN
+setp sim-y-window.max [JOINT_1]SIM_SWITCH_MAX
+setp sim-z-window.min [JOINT_2]SIM_SWITCH_MIN
+setp sim-z-window.max [JOINT_2]SIM_SWITCH_MAX
+
+net x-pos-cmd => sim-x-window.in
+net y-pos-cmd => sim-y-window.in
+net z-pos-cmd => sim-z-window.in
+
+net sim-x-in-travel sim-x-window.out => sim-x-trip.in
+net sim-y-in-travel sim-y-window.out => sim-y-trip.in
+net sim-z-in-travel sim-z-window.out => sim-z-trip.in
+
+net x-switch <= sim-x-trip.out
+net y-switch <= sim-y-trip.out
+net z-switch <= sim-z-trip.out

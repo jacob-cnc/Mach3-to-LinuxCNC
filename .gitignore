@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Written by the copied dxfclean tests
+tests/docs/
+tests/examples/
