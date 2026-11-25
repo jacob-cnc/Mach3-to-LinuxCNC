@@ -126,7 +126,10 @@ class LiveBackend(MachineBackend):
                 commanded=joint.get("output", 0.0),
                 following_error=joint.get("ferror_current", 0.0),
                 homed=HomingState.HOMED if s.homed[i] else HomingState.NOT_HOMED,
-                at_limit=bool(s.limit[i]),
+                # stat.limit bits: 1 = min hard, 2 = max hard, 4/8 = soft.
+                # Only a tripped switch counts here.
+                at_limit=bool(s.limit[i] & 3),
+                limit_end=-1 if s.limit[i] & 1 else (1 if s.limit[i] & 2 else 0),
                 enabled=bool(joint.get("enabled", False)),
                 min_limit=joint.get("min_position_limit", 0.0),
                 max_limit=joint.get("max_position_limit", 0.0),
@@ -174,6 +177,7 @@ class LiveBackend(MachineBackend):
             active_gcodes=gcodes,
             active_mcodes=mcodes,
             active_wcs=WCS_NAMES[wcs_index],
+            work_origin=tuple(s.g5x_offset[i] + s.g92_offset[i] for i in range(_AXES)),
             tool_in_spindle=s.tool_in_spindle,
             tool_length_offset=s.tool_offset[2],
             estop_active=task_state == TaskState.ESTOP,
@@ -282,6 +286,15 @@ class LiveBackend(MachineBackend):
             self._cmd.teleop_enable(0)
             self._cmd.wait_complete()
             self._cmd.unhome(axis)
+            return True
+        except linuxcnc.error:
+            return False
+
+    def override_limits(self) -> bool:
+        try:
+            if not self._ensure_mode(linuxcnc.MODE_MANUAL):
+                return False
+            self._cmd.override_limits()
             return True
         except linuxcnc.error:
             return False

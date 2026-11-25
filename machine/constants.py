@@ -30,6 +30,12 @@ HOMES = (X_HOME, Y_HOME, Z_HOME)
 MAX_VELOCITY = 0.65
 MAX_ACCELERATION = 15.0
 DEFAULT_JOG_VELOCITY = 0.25
+MAX_JOG_VELOCITY = MAX_VELOCITY
+
+# On-screen jog step choices (machine units). 0 = continuous (hold to move).
+JOG_INCREMENTS_INCH = (0.0, 0.0001, 0.001, 0.01, 0.1)
+JOG_INCREMENTS_MM = (0.0, 0.001, 0.01, 0.1, 1.0)   # in mm; converted on use
+DEFAULT_JOG_INCREMENT_INDEX = 0
 
 # Spindle (VFD, no encoder)
 SPINDLE_MIN_RPM = 6000

@@ -78,7 +78,7 @@ class AxisState:
     commanded: commanded joint position (machine coordinates)
     following_error: joint following error
     homed: homing state
-    at_limit: a limit is active on this axis
+    at_limit: the axis's limit switch is tripped (hard limit, either end)
     enabled: joint enabled
     min_limit / max_limit: soft limits (machine coordinates)
     """
@@ -89,6 +89,7 @@ class AxisState:
     following_error: float = 0.0
     homed: HomingState = HomingState.NOT_HOMED
     at_limit: bool = False
+    limit_end: int = 0              # -1 min-end switch, +1 max-end, 0 clear
     enabled: bool = False
     min_limit: float = 0.0
     max_limit: float = 0.0
@@ -142,6 +143,8 @@ class MachineState:
     active_gcodes: str = ""
     active_mcodes: str = ""
     active_wcs: str = "G54"
+    # Machine position of the active work zero (G5x + G92), per axis
+    work_origin: tuple = (0.0, 0.0, 0.0)
 
     # Tool
     tool_in_spindle: int = 0
@@ -236,6 +239,11 @@ class MachineBackend(ABC):
 
     @abstractmethod
     def unhome_axis(self, axis: int) -> bool: ...
+
+    @abstractmethod
+    def override_limits(self) -> bool:
+        """Allow jogging off a tripped limit switch (one switch shares home
+        and both limits per axis, so a trip needs this to back off)."""
 
     # -- Jogging (axis: AXIS_X / AXIS_Y / AXIS_Z, velocity in units/sec) ----
 
