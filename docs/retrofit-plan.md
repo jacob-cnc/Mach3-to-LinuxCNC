@@ -91,7 +91,7 @@ Each phase ends with a check that has to pass before the next one starts.
 
 The GUI is built ahead of the retrofit, alongside Phases 0–3, so it is ready for commissioning.
 
-1. Write a sim config (3 axes, inch internal, mill travel) early so the GUI has something to run against. It becomes the starting point for the Phase 3 config.
+1. Write a sim config (3 axes, inch internal, mill travel) early so the GUI has something to run against. It becomes the starting point for the Phase 3 config. First version: [config/](../config/README.md).
 2. Build the mill GUI from the lathe's, reusing its shared parts (such as inch/mm display) and replacing the lathe-specific screens (diameter mode, X/Z layout).
 3. Before commissioning, check it against the real HAL pins on the bench (Phase 3).
 

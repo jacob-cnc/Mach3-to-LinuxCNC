@@ -1,0 +1,101 @@
+# ============================================================================
+# mill_core.hal: logic shared by the sim and the machine config.
+#
+# Everything hardware-specific lives in the hardware layer (sim_hardware.hal
+# now, mesa_hardware.hal in Phase 3). The two talk through the named signals
+# listed in config/README.md. Signal polarity here is always TRUE = active
+# (switch tripped, fault present); the hardware layer handles wiring polarity.
+#
+# Not in HAL on purpose: the spindle cooling pump runs whenever the machine
+# has power (D6), wired upstream of the E-stop circuit.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Motion
+# ----------------------------------------------------------------------------
+loadrt [KINS]KINEMATICS
+loadrt [EMCMOT]EMCMOT servo_period_nsec=[EMCMOT]SERVO_PERIOD num_joints=[KINS]JOINTS
+
+loadrt estop_latch
+loadrt or2 names=estop-or,probe-or
+loadrt timedelay names=spindle-spinup
+
+# The Mesa read and write functions are placed first and last by the hardware
+# layer (addf ... servo-thread 1 / -1), so the order here does not matter.
+addf motion-command-handler servo-thread
+addf motion-controller      servo-thread
+addf estop-latch.0          servo-thread
+addf estop-or               servo-thread
+addf probe-or               servo-thread
+addf spindle-spinup         servo-thread
+
+# ----------------------------------------------------------------------------
+# Joints. The hardware layer closes each loop by driving joint.N.motor-pos-fb.
+# ----------------------------------------------------------------------------
+net x-pos-cmd  <= joint.0.motor-pos-cmd
+net y-pos-cmd  <= joint.1.motor-pos-cmd
+net z-pos-cmd  <= joint.2.motor-pos-cmd
+
+net x-enable   <= joint.0.amp-enable-out
+net y-enable   <= joint.1.amp-enable-out
+net z-enable   <= joint.2.amp-enable-out
+
+# One switch input per axis: home and both hard limits (D4).
+# Requires HOME_IGNORE_LIMITS = YES in each [JOINT_n].
+net x-switch   => joint.0.home-sw-in joint.0.neg-lim-sw-in joint.0.pos-lim-sw-in
+net y-switch   => joint.1.home-sw-in joint.1.neg-lim-sw-in joint.1.pos-lim-sw-in
+net z-switch   => joint.2.home-sw-in joint.2.neg-lim-sw-in joint.2.pos-lim-sw-in
+
+# All drive alarm outputs share one input; any alarm faults every joint.
+net drive-alarm => joint.0.amp-fault-in joint.1.amp-fault-in joint.2.amp-fault-in
+
+# Machine on: drives the drive-enable relay in the hardware layer.
+net machine-on <= motion.motion-enabled
+
+# ----------------------------------------------------------------------------
+# E-stop (software side). The hardwired E-stop chain removes drive enable and
+# VFD run on its own; this latch makes LinuxCNC follow it, and also trips on a
+# VFD fault so a stalled spindle cannot keep feeding into the work.
+# ----------------------------------------------------------------------------
+net estop-ext-fault => estop-or.in0
+net vfd-fault       => estop-or.in1 spindle.0.amp-fault-in
+net estop-fault     estop-or.out              => estop-latch.0.fault-in
+net estop-ok-in     iocontrol.0.user-enable-out    => estop-latch.0.ok-in
+net estop-reset     iocontrol.0.user-request-enable => estop-latch.0.reset
+net estop-ok        estop-latch.0.ok-out      => iocontrol.0.emc-enable-in
+
+# ----------------------------------------------------------------------------
+# Spindle (VFD, no encoder)
+# At-speed is a fixed delay after spindle on. It does not re-wait after a
+# speed change while running; revisit if the VFD has an at-frequency output.
+# ----------------------------------------------------------------------------
+net spindle-on       spindle.0.on          => spindle-spinup.in
+net spindle-cw       <= spindle.0.forward
+net spindle-ccw      <= spindle.0.reverse
+net spindle-rpm-cmd  <= spindle.0.speed-out-abs
+net spindle-at-speed spindle-spinup.out    => spindle.0.at-speed
+
+setp spindle-spinup.on-delay  [SPINDLE_0]SPINUP_DELAY
+setp spindle-spinup.off-delay 0
+
+# ----------------------------------------------------------------------------
+# Coolant. Flood only (M8/M9); the spindle cooling pump is not in HAL.
+# ----------------------------------------------------------------------------
+net coolant-flood <= iocontrol.0.coolant-flood
+
+# ----------------------------------------------------------------------------
+# Probe and tool setter share LinuxCNC's single probe input.
+# ----------------------------------------------------------------------------
+net probe-in      => probe-or.in0
+net toolsetter-in => probe-or.in1
+net probe-any     probe-or.out => motion.probe-input
+
+# ----------------------------------------------------------------------------
+# Manual tool change (ER collet). AXIS shows a prompt on M6.
+# The custom GUI may replace hal_manualtoolchange with its own prompt.
+# ----------------------------------------------------------------------------
+loadusr -W hal_manualtoolchange
+net tool-change      iocontrol.0.tool-change      => hal_manualtoolchange.change
+net tool-changed     hal_manualtoolchange.changed => iocontrol.0.tool-changed
+net tool-prep-number iocontrol.0.tool-prep-number => hal_manualtoolchange.number
+net tool-prep-loop   iocontrol.0.tool-prepare     => iocontrol.0.tool-prepared

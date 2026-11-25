@@ -8,6 +8,7 @@ Status: planning; no validated LinuxCNC configuration yet.
 - [Machine baseline](docs/machine-baseline.md)
 - [OEM source inventory](docs/source-inventory.md)
 - [Commissioning checklist](commissioning/README.md)
+- [LinuxCNC sim config](config/README.md)
 - [ADR-001: Motion controller is a Mesa 7i96S + 7i85S](decisions/ADR-001-motion-controller.md)
 
 Preserve the working Mach3 configuration before changing hardware.
