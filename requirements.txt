@@ -1,0 +1,6 @@
+# Mill GUI (Python 3). On the LinuxCNC PC, linuxcnc and hal come with LinuxCNC.
+PyQt5>=5.15
+pyqtgraph>=0.13
+ezdxf>=1.1
+matplotlib>=3.6
+pytest>=7
