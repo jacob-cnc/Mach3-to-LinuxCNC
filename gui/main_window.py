@@ -27,6 +27,7 @@ from PyQt5.QtWidgets import (
 
 from gui.colors import COLORS, STYLESHEET
 from gui.components.status_bar import StatusBar
+from gui.manual import ManualTab
 from machine.factory import get_backend
 from machine.interface import InterpState, SpindleDirection, TaskMode
 
@@ -93,7 +94,10 @@ class MainWindow(QMainWindow):
 
         self._tabs = {}
         for title, purpose in TABS:
-            page = self._make_placeholder(title, purpose)
+            if title == "Manual":
+                page = ManualTab(self._backend, self)
+            else:
+                page = self._make_placeholder(title, purpose)
             self._tabs[title] = page
             self._tab_widget.addTab(page, title)
         self._tab_widget.setCurrentWidget(self._tabs["Manual"])
@@ -245,6 +249,10 @@ class MainWindow(QMainWindow):
     @property
     def backend(self):
         return self._backend
+
+    @property
+    def manual_tab(self) -> ManualTab:
+        return self._tabs["Manual"]
 
 
 # --------------------------------------------------------------------------
