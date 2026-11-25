@@ -1,6 +1,6 @@
 # Mill GUI plan
 
-Status: design decided at a high level, 2026-11-25; no GUI code yet. The GUI is built ahead of the retrofit against the [sim config](../config/README.md), as the parallel track in the [retrofit plan](retrofit-plan.md).
+Status: skeleton built 2026-11-25 (shell, ribbon, placeholder tabs, mock and live backends, `dxfclean`); see [Running the GUI](#running-the-gui). The GUI is built ahead of the retrofit against the [sim config](../config/README.md), as the parallel track in the [retrofit plan](retrofit-plan.md).
 
 ## Decisions
 
@@ -11,9 +11,10 @@ Status: design decided at a high level, 2026-11-25; no GUI code yet. The GUI is 
 | G3 | Probing | No probe yet. Design probing and tool-setter support following Probe Basic's approach so a probe can be added later. |
 | G4 | Toolpath preview | Build both: a pixel-accurate 2D view with a plane selector (XY / XZ / YZ), like the lathe's coordinate map, and a 3D view. |
 | G5 | Screen | Same 15.6 in panel as the lathe. |
-| G6 | Conversational and DXF | Conversational programs built in the GUI from DXF geometry, ProtoTRAK style; externally generated G-code stays supported. DXF import is a copy of DXF-Tooling's `dxfclean` package, taken after DXF-Tooling PR #17 merges. |
+| G6 | Conversational and DXF | Conversational programs built in the GUI from DXF geometry, ProtoTRAK style; externally generated G-code stays supported. DXF import is DXF-Tooling's `dxfclean` package, copied as is from DXF-Tooling main and patched here as needed (DXF-Tooling PR #17 is not in the copy). |
 | G7 | Licensing | No plans to distribute. Copy open-source code (QtPyVCP, NGCGUI, Probe Basic) wherever that integrates most cleanly, keeping the original license headers and logging the source like the lathe carryover. |
 | G8 | Cutter compensation | Use LinuxCNC cutter compensation (G41/G42) for profile cuts: the program follows the part contour, and the tool diameter comes from the tool table. |
+| G9 | Pocket roughing | LinuxCNC computes the offsets: the pocket contour is repeated with G41.1 and a growing `D` value. No offset geometry in the GUI. |
 
 ## Lathe features, sorted
 
@@ -75,7 +76,7 @@ Requirements: conversational programming inside the GUI, built on DXF geometry t
 ### Chosen approach (accepted 2026-11-25)
 
 1. **Conversational engine: our own Python op generators in the GUI**, modeled on ProtoTRAK events (position/drill, bolt circle, line and arc mill with tool left/right/center, pocket, profile, face). QtPyVCP's `ops` is the pattern and the starting point for facing and holes. Output is plain LinuxCNC G-code (canned cycles for holes, G41/G42 for profile finishing), so a program runs, previews and edits like any other file.
-2. **DXF importer: copied from DXF-Tooling's `dxfclean` package** (cleanup, spline-to-arc fitting, chaining, circle splitting, with its test suite). It already handles the CAD-export problems seen on the ProtoTRAK work (duplicate arcs, splines, broken chains). Copy after DXF-Tooling PR #17 (closed-spline crash fix) merges. Chained contours become profile/pocket events; circles become hole events.
+2. **DXF importer: copied from DXF-Tooling's `dxfclean` package** (cleanup, spline-to-arc fitting, chaining, circle splitting, with its test suite). It already handles the CAD-export problems seen on the ProtoTRAK work (duplicate arcs, splines, broken chains). Copied as is from DXF-Tooling main; the closed-spline crash fix in DXF-Tooling PR #17 is not included and gets ported here if needed. Chained contours become profile/pocket events; circles become hole events.
 3. **External G-code: unchanged Run tab path.** PureCutCNC is the first external CAM to trial; FreeCAD CAM is the fallback.
 4. Not used: NGCGUI (can't take DXF geometry), simple-gcode-generators (Python 2), dxf2gcode as code (whole app).
 
@@ -86,12 +87,12 @@ LinuxCNC's G41/G42 has requirements the generators must meet, and the GUI should
 - Comp turns on with a straight lead-in move longer than the tool radius, in G17, and turns off (G40) with a lead-out move clear of the part.
 - An inside corner arc smaller than the tool radius, or a notch narrower than the tool, makes LinuxCNC stop with a gouge error. The pre-check catches this against the tool table diameter.
 
-### Open design question: pocket roughing
+### Pocket roughing (G9)
 
-A pocket's finish pass is a G41 profile of its contour. Roughing the inside still needs a clearing pattern. Two options to test on the sim:
+A pocket's finish pass is a G41 profile of its contour. Roughing repeats the same contour with G41.1 and a growing `D` (tool diameter plus twice the accumulated step-over), so LinuxCNC computes each inward offset. Limits the generator must handle:
 
-1. Repeat the contour with G41.1 and a growing `D` value (tool diameter plus twice the step-over), so LinuxCNC computes each offset. No offset code in the GUI, but it fails where the offset would split the pocket into separate regions or exceed an inside arc radius, and it leaves a centre area for a final pass.
-2. Compute roughing offsets in Python and cut them without comp, keeping comp for the finish pass only.
+- An offset larger than an inside arc radius, or one that would split the pocket into separate regions, makes LinuxCNC stop. The generator stops growing `D` before that point, and the pre-check reports what is left uncut.
+- The innermost pass leaves a centre area; a final clearing move covers it.
 
 ## Carryover log
 
@@ -99,4 +100,30 @@ Each copied file gets a row: source repo and path, source commit, mill path, and
 
 | Source file | Source commit | Mill file | Changes |
 |---|---|---|---|
-| — | — | — | Nothing copied yet |
+| Lathe `gui/colors.py`, `gui/unit_state.py`, `gui/components/elided_label.py`, `gui/components/numeric_field.py`, `gui/components/collapsible_section.py` | Industry-CAM-Engine dfb1c1a | same paths | None (byte-identical) |
+| Lathe `gui/debug_overlay.py` | Industry-CAM-Engine dfb1c1a | `gui/debug_overlay.py` | Env vars `MILL_GUI_DEBUG_UI` / `MILL_GUI_SNAPSHOT_DIR`; snapshots go to `%LOCALAPPDATA%\MillGUI\ui_snapshots`; page-letter list in the docstring |
+| Lathe `gui/components/status_bar.py` | Industry-CAM-Engine dfb1c1a | `gui/components/status_bar.py` | X/Y/Z DRO; RPM is commanded speed and its box fits 5 digits; OFFLINE badge set from the backend (`set_offline`) instead of "linuxcnc importable" |
+| Lathe `gui/main_window.py` | Industry-CAM-Engine dfb1c1a | `gui/main_window.py` | Mill placeholder tabs; lathe tab wiring, green cycle button and `restore_lathe_modes` dropped; software E-stop commands E-stop (lathe: machine off); feed readout shows actual feed (lathe passes the feed override, see note) |
+| Lathe `hal/interface.py` | Industry-CAM-Engine dfb1c1a | `machine/interface.py` | Package renamed `hal` → `machine` so it can't shadow LinuxCNC's `hal` module; X/Y/Z axes; no diameter; `current_feed`, `active_wcs`, `estop()`, `set_flood()` added |
+| Lathe `hal/factory.py` | Industry-CAM-Engine dfb1c1a | `machine/factory.py` | Package rename only |
+| Lathe `hal/mock_backend.py` | Industry-CAM-Engine dfb1c1a | `machine/mock_backend.py` | Per-axis lists; no compound/MPG simulation; flood, E-stop, spin-up delay; errors reported once |
+| Lathe `hal/live_backend.py` | Industry-CAM-Engine dfb1c1a | `machine/live_backend.py` | Kept error draining, `program_busy`, mode rules, `program_open`. Dropped compound HAL component, MPG mux, diameter, spindle encoder. Added Y, joint/teleop jog switching before homing, flood, E-stop. Not yet run against LinuxCNC. |
+| Lathe `hal/constants.py` | — | `machine/constants.py` | Rewritten for the mill from `config/mill-sim.ini` |
+| DXF-Tooling `dxfclean/` (whole package) | DXF-Tooling c779a7f (main) | `dxfclean/` | None (copied as is; PR #17 not included) |
+| DXF-Tooling `tests/test_*.py` except the 4 that test `app.py`, and `fixtures/*.dxf` | DXF-Tooling c779a7f | `tests/dxfclean/`, `tests/fixtures/` | None; layout keeps the tests' relative fixture paths working. 64 pass. |
+
+**Possible lathe ports noticed while copying:**
+
+- Lathe `main_window.py` passes `feed_override` to `status_bar.update_feed()`, which labels it in/min. The mill shows the actual feed rate (`stat.current_vel` × 60).
+- Lathe status bar decides OFFLINE from "is `linuxcnc` importable", so on the lathe PC with LinuxCNC not running it shows mock data without the badge. The mill asks the backend.
+
+## Running the GUI
+
+Requirements: Python 3 with PyQt5, pyqtgraph, ezdxf and matplotlib (`requirements.txt`).
+
+- **Offline (any PC):** `python -m gui.main_window` from the repo root. Uses the mock backend and shows the OFFLINE badge.
+- **Against the sim (LinuxCNC PC):** start the sim (`linuxcnc config/mill-sim.ini`, AXIS opens), then run `python3 -m gui.main_window` in a second terminal. The GUI attaches to the running LinuxCNC as a second display. Making it the config's `DISPLAY` comes later.
+- **Debug overlay:** set `MILL_GUI_DEBUG_UI=1`. Snapshots (F9) go to `%LOCALAPPDATA%\MillGUI\ui_snapshots`.
+- **Tests:** `python -m pytest tests`.
+
+![Skeleton at 1920 × 1080, offline](img/gui-skeleton.png)
