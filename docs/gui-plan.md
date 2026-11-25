@@ -1,6 +1,8 @@
 # Mill GUI plan
 
-Status: skeleton built 2026-11-25 (shell, ribbon, placeholder tabs, mock and live backends, `dxfclean`); see [Running the GUI](#running-the-gui). The GUI is built ahead of the retrofit against the [sim config](../config/README.md), as the parallel track in the [retrofit plan](retrofit-plan.md).
+Status: skeleton built 2026-11-25 (shell, ribbon, mock and live backends, `dxfclean`); Manual tab built; other tabs are placeholders. See [Running the GUI](#running-the-gui).
+
+![Manual tab, offline](img/manual-tab.png) The GUI is built ahead of the retrofit against the [sim config](../config/README.md), as the parallel track in the [retrofit plan](retrofit-plan.md).
 
 ## Decisions
 
@@ -109,6 +111,9 @@ Each copied file gets a row: source repo and path, source commit, mill path, and
 | Lathe `hal/mock_backend.py` | Industry-CAM-Engine dfb1c1a | `machine/mock_backend.py` | Per-axis lists; no compound/MPG simulation; flood, E-stop, spin-up delay; errors reported once |
 | Lathe `hal/live_backend.py` | Industry-CAM-Engine dfb1c1a | `machine/live_backend.py` | Kept error draining, `program_busy`, mode rules, `program_open`. Dropped compound HAL component, MPG mux, diameter, spindle encoder. Added Y, joint/teleop jog switching before homing, flood, E-stop. Not yet run against LinuxCNC. |
 | Lathe `hal/constants.py` | — | `machine/constants.py` | Rewritten for the mill from `config/mill-sim.ini` |
+| Lathe `gui/manual/manual_tab.py` | Industry-CAM-Engine dfb1c1a | `gui/manual/manual_tab.py` | Kept splitter layout, work/machine DRO toggle, hold-to-jog buttons, arrow-key jog, unit handling, MDI history. Dropped compound slide and MPG mode. Added Y, step jogging, Page Up/Down for Z, limit-switch banner with Override Limits, VFD spindle and flood controls, G54–G59.3 touch-off; polls only while visible |
+| Lathe `gui/manual/sections.py` | Industry-CAM-Engine dfb1c1a | `gui/manual/sections.py` | Same builder pattern. Sections: Jog, Homing, Spindle, Coolant, Tool, Touch-Off, MDI. One shared button style (ribbon bubble border, 44 px) |
+| Lathe `gui/components/position_graph.py` | Industry-CAM-Engine dfb1c1a | `gui/components/position_graph.py` | Plane selector (XY / XZ / YZ), work-zero cross, everything in machine coordinates, labels follow inch/mm |
 | DXF-Tooling `dxfclean/` (whole package) | DXF-Tooling c779a7f (main) | `dxfclean/` | None (copied as is; PR #17 not included) |
 | DXF-Tooling `tests/test_*.py` except the 4 that test `app.py`, and `fixtures/*.dxf` | DXF-Tooling c779a7f | `tests/dxfclean/`, `tests/fixtures/` | None; layout keeps the tests' relative fixture paths working. 64 pass. |
 
@@ -116,6 +121,7 @@ Each copied file gets a row: source repo and path, source commit, mill path, and
 
 - Lathe `main_window.py` passes `feed_override` to `status_bar.update_feed()`, which labels it in/min. The mill shows the actual feed rate (`stat.current_vel` × 60).
 - Lathe status bar decides OFFLINE from "is `linuxcnc` importable", so on the lathe PC with LinuxCNC not running it shows mock data without the badge. The mill asks the backend.
+- Lathe position graph plots the WORK position against an envelope drawn in MACHINE coordinates, so after a touch-off the dot and trail shift away from the true travel limits. The mill plots machine position and marks the work zero separately.
 
 ## Running the GUI
 
