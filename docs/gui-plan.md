@@ -1,17 +1,19 @@
 # Mill GUI plan
 
-Status: ideation, 2026-11-25. The GUI is built ahead of the retrofit against the [sim config](../config/README.md), as the parallel track in the [retrofit plan](retrofit-plan.md).
+Status: design decided at a high level, 2026-11-25; no GUI code yet. The GUI is built ahead of the retrofit against the [sim config](../config/README.md), as the parallel track in the [retrofit plan](retrofit-plan.md).
 
 ## Decisions
 
 | # | Topic | Decision (2026-11-25) |
 |---|---|---|
 | G1 | Relation to the lathe GUI | Separate codebase in this repo. Pieces are copied from the lathe GUI (jacob-cnc/Industry-CAM-Engine) and then diverge; no shared library. Every copied file is logged below with its lathe commit, so a lesson learned on one machine can be ported to the other by hand. |
-| G2 | G-code source | Undecided. No commercial CAM. Investigate open-source CAM and conversational options first; building or modifying a conversational system comes after. |
+| G2 | G-code source | No commercial CAM. Conversational ops are our own Python generators in the GUI, using QtPyVCP's `ops` as the starting point. External G-code runs through the Run tab; PureCutCNC is the first external CAM to trial, FreeCAD CAM the fallback. See the investigation below. |
 | G3 | Probing | No probe yet. Design probing and tool-setter support following Probe Basic's approach so a probe can be added later. |
 | G4 | Toolpath preview | Build both: a pixel-accurate 2D view with a plane selector (XY / XZ / YZ), like the lathe's coordinate map, and a 3D view. |
 | G5 | Screen | Same 15.6 in panel as the lathe. |
-| G6 | Conversational and DXF | Conversational programs built in the GUI from DXF geometry, ProtoTRAK style; externally generated G-code stays supported. Approach proposed below (G2 investigation). |
+| G6 | Conversational and DXF | Conversational programs built in the GUI from DXF geometry, ProtoTRAK style; externally generated G-code stays supported. DXF import is a copy of DXF-Tooling's `dxfclean` package, taken after DXF-Tooling PR #17 merges. |
+| G7 | Licensing | No plans to distribute. Copy open-source code (QtPyVCP, NGCGUI, Probe Basic) wherever that integrates most cleanly, keeping the original license headers and logging the source like the lathe carryover. |
+| G8 | Cutter compensation | Use LinuxCNC cutter compensation (G41/G42) for profile cuts: the program follows the part contour, and the tool diameter comes from the tool table. |
 
 ## Lathe features, sorted
 
@@ -70,21 +72,31 @@ Requirements: conversational programming inside the GUI, built on DXF geometry t
 | [PureCutCNC](https://github.com/PureCutCNC/purecutcnc) | TypeScript browser/desktop 2.5D/3D CAD/CAM; DXF/SVG/STEP import; pockets, edge routes, drilling, V-carve; exports checked against LinuxCNC's parser | Most capable and very active, but young (created March 2026) and not embeddable in a Python GUI. Good external CAM. Apache-2.0. |
 | FreeCAD CAM workbench | Full CAM inside FreeCAD, with a LinuxCNC post | Heavy dependency and steep learning curve; external use only. |
 
-### Proposed approach
+### Chosen approach (accepted 2026-11-25)
 
 1. **Conversational engine: our own Python op generators in the GUI**, modeled on ProtoTRAK events (position/drill, bolt circle, line and arc mill with tool left/right/center, pocket, profile, face). QtPyVCP's `ops` is the pattern and the starting point for facing and holes. Output is plain LinuxCNC G-code (canned cycles for holes, G41/G42 for profile finishing), so a program runs, previews and edits like any other file.
 2. **DXF importer: copied from DXF-Tooling's `dxfclean` package** (cleanup, spline-to-arc fitting, chaining, circle splitting, with its test suite). It already handles the CAD-export problems seen on the ProtoTRAK work (duplicate arcs, splines, broken chains). Copy after DXF-Tooling PR #17 (closed-spline crash fix) merges. Chained contours become profile/pocket events; circles become hole events.
 3. **External G-code: unchanged Run tab path.** PureCutCNC is the first external CAM to trial; FreeCAD CAM is the fallback.
 4. Not used: NGCGUI (can't take DXF geometry), simple-gcode-generators (Python 2), dxf2gcode as code (whole app).
 
-Open design question: pocket clearing needs real offset geometry. Option: rough from offset paths computed in Python, then finish on the true contour with G41/G42.
+### Cutter compensation rules (G8)
 
-License note: copying QtPyVCP or NGCGUI code makes the GUI GPL when distributed. Using them as reference only avoids that.
+LinuxCNC's G41/G42 has requirements the generators must meet, and the GUI should check them before a program is written, with a plain-language message naming the feature and the fix:
+
+- Comp turns on with a straight lead-in move longer than the tool radius, in G17, and turns off (G40) with a lead-out move clear of the part.
+- An inside corner arc smaller than the tool radius, or a notch narrower than the tool, makes LinuxCNC stop with a gouge error. The pre-check catches this against the tool table diameter.
+
+### Open design question: pocket roughing
+
+A pocket's finish pass is a G41 profile of its contour. Roughing the inside still needs a clearing pattern. Two options to test on the sim:
+
+1. Repeat the contour with G41.1 and a growing `D` value (tool diameter plus twice the step-over), so LinuxCNC computes each offset. No offset code in the GUI, but it fails where the offset would split the pocket into separate regions or exceed an inside arc radius, and it leaves a centre area for a final pass.
+2. Compute roughing offsets in Python and cut them without comp, keeping comp for the finish pass only.
 
 ## Carryover log
 
-Each file copied from the lathe GUI gets a row: lathe path, lathe commit, mill path, and what changed.
+Each copied file gets a row: source repo and path, source commit, mill path, and what changed. Sources include the lathe GUI, DXF-Tooling, and open-source projects (G7).
 
-| Lathe file | Lathe commit | Mill file | Changes |
+| Source file | Source commit | Mill file | Changes |
 |---|---|---|---|
 | — | — | — | Nothing copied yet |
